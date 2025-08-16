@@ -1,0 +1,12 @@
+[package]
+name = "wit-docs-inject"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+anyhow = "1"
+clap = { version = "4", features = ["derive"] }
+wit-parser = "0.236"
+wit-component = "0.236"
+wasmparser = "0.236"
+wasm-encoder = { version = "0.236", features = ["component-model", "wasmparser"] }
