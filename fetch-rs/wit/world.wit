@@ -1,0 +1,7 @@
+package component:fetch-rs;
+
+/// An example world for the component to target.
+world fetch {
+    /// Fetch the webpage
+    export fetch: func(url: string) -> result<string, string>;
+}

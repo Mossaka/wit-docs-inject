@@ -5,8 +5,9 @@ edition = "2024"
 
 [dependencies]
 anyhow = "1"
-clap = { version = "4", features = ["derive"] }
+clap = { version = "4", features = ["derive", "color"] }
 wit-parser = "0.236"
 wit-component = "0.236"
 wasmparser = "0.236"
 wasm-encoder = { version = "0.236", features = ["component-model", "wasmparser"] }
+serde_json = "1.0"

@@ -1,0 +1,6 @@
+version: "1.0"
+description: "Permission policy for wassette weather demo"
+permissions:
+  network:
+    allow:
+      - host: "https://rss.nytimes.com/"
