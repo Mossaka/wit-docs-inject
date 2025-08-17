@@ -1,11 +1,9 @@
-use anyhow::{bail, Context, Result};
+use anyhow::{Context, Result};
 use clap::Parser;
 use std::{borrow::Cow, fs, path::PathBuf};
-use wasm_encoder::{Component, ComponentSection, CustomSection};
-use wasm_encoder::reencode::{RoundtripReencoder, ReencodeComponent};
-use wasm_encoder::reencode::component_utils::parse_component;
-use wit_parser::{Resolve};
-use wit_parser::metadata::PackageMetadata;
+use wasm_encoder::reencode::{RoundtripReencoder, component_utils::parse_component};
+use wasm_encoder::{Component, CustomSection};
+use wit_parser::{PackageMetadata, Resolve};
 
 /// Inject `package-docs` from a .wit source dir into a component.
 #[derive(Parser, Debug)]
@@ -30,8 +28,8 @@ struct Args {
 
 fn main() -> Result<()> {
     let args = Args::parse();
-    let input = fs::read(&args.component)
-        .with_context(|| format!("reading {:?}", args.component))?;
+    let input =
+        fs::read(&args.component).with_context(|| format!("reading {:?}", args.component))?;
 
     // 1) Build WIT docs -> binary metadata payload ("package-docs")
     let mut resolve = Resolve::new();
@@ -48,10 +46,15 @@ fn main() -> Result<()> {
 
     // Round-trip copy all existing sections exactly.
     // (This preserves ordering/contents; we only add one extra custom section at the end.)
-    let mut rr = RoundtripReencoder::default();
-    parse_component(&input, |payload| {
-        rr.reencode_component_section(payload, &mut out_comp)
-    }).context("reencoding original component")?;
+    let mut rr = RoundtripReencoder;
+    parse_component(
+        &mut rr,
+        &mut out_comp,
+        wasmparser::Parser::new(0),
+        &input,
+        &input,
+    )
+    .context("reencoding original component")?;
 
     // Append `package-docs` custom section for components.
     // Note: SECTION_NAME is "package-docs".
@@ -65,17 +68,21 @@ fn main() -> Result<()> {
 
     // 3) Write output
     let out_path = if args.inplace {
-        &args.component
+        args.component.clone()
     } else {
-        args.out.as_deref().unwrap_or_else(|| {
+        args.out.clone().unwrap_or_else(|| {
             let mut p = args.component.clone();
             let ext = p.extension().and_then(|e| e.to_str()).unwrap_or("");
-            if ext.is_empty() { p.set_extension("wasm"); }
+            if ext.is_empty() {
+                p.set_extension("wasm");
+            }
             let stem = p.file_stem().unwrap_or_default().to_string_lossy();
             let parent = p.parent().unwrap_or_else(|| std::path::Path::new("."));
             let mut out = parent.join(format!("{stem}.docs.wasm"));
             // avoid the case where `component` had no ext and we changed it above
-            if out == args.component { out = parent.join(format!("{stem}.docs.injected.wasm")); }
+            if out == args.component {
+                out = parent.join(format!("{stem}.docs.injected.wasm"));
+            }
             out
         })
     };
