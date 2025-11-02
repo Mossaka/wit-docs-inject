@@ -25,14 +25,24 @@ struct Args {
     /// Overwrite the input file in place
     #[arg(long, default_value_t = false)]
     inplace: bool,
+
+    /// Automatically resolve WIT dependencies from deps.toml if present
+    #[arg(long, default_value_t = true)]
+    resolve_deps: bool,
 }
 
-fn main() -> Result<()> {
+#[tokio::main]
+async fn main() -> Result<()> {
     let args = Args::parse();
     let input = fs::read(&args.component)
         .with_context(|| format!("reading {:?}", args.component))?;
 
-    // 1) Build WIT docs -> binary metadata payload ("package-docs")
+    // 1) Resolve WIT dependencies if requested and deps.toml exists
+    if args.resolve_deps {
+        resolve_wit_dependencies(&args.wit_dir).await?;
+    }
+
+    // 2) Build WIT docs -> binary metadata payload ("package-docs")
     let mut resolve = Resolve::new();
     let (pkg_id, _sources) = resolve
         .push_dir(&args.wit_dir)
@@ -42,7 +52,7 @@ fn main() -> Result<()> {
     let meta = PackageMetadata::extract(&resolve, pkg_id);
     let payload = meta.encode().context("encoding package-docs")?;
 
-    // 2) Reencode component verbatim and append our custom section
+    // 3) Reencode component verbatim and append our custom section
     let mut out_comp = Component::new();
 
     // Round-trip copy all existing sections exactly.
@@ -62,7 +72,7 @@ fn main() -> Result<()> {
 
     let bytes = out_comp.finish();
 
-    // 3) Write output
+    // 4) Write output
     let out_path = if args.inplace {
         args.component.clone()
     } else if let Some(out) = args.out {
@@ -81,5 +91,37 @@ fn main() -> Result<()> {
     fs::write(&out_path, bytes).with_context(|| format!("writing {:?}", out_path))?;
 
     eprintln!("Injected package-docs into {:?}", out_path);
+    Ok(())
+}
+
+/// Resolve WIT dependencies using wit-deps if deps.toml exists
+async fn resolve_wit_dependencies(wit_dir: &PathBuf) -> Result<()> {
+    let deps_toml = wit_dir.join("deps.toml");
+
+    if !deps_toml.exists() {
+        // No deps.toml file, nothing to resolve
+        return Ok(());
+    }
+
+    eprintln!("Found deps.toml, resolving WIT dependencies...");
+
+    let deps_lock_path = wit_dir.join("deps.lock");
+    let deps_dir = wit_dir.join("deps");
+
+    // Run wit-deps to resolve dependencies
+    // lock_path returns true if the lock was updated, false if already in sync
+    let updated = wit_deps::lock_path(
+        &deps_toml,
+        &deps_lock_path,
+        &deps_dir,
+    )
+    .await
+    .context("resolving WIT dependencies with wit-deps")?;
+
+    if updated {
+        eprintln!("Updated deps.lock");
+    }
+
+    eprintln!("WIT dependencies resolved successfully");
     Ok(())
 }
