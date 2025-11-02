@@ -40,6 +40,9 @@ wit-docs-inject --component component.wasm --wit-dir wit-source/ --inplace
 
 # Specify custom output path
 wit-docs-inject --component component.wasm --wit-dir wit-source/ --out documented-component.wasm
+
+# Disable automatic dependency resolution
+wit-docs-inject --component component.wasm --wit-dir wit-source/ --resolve-deps=false
 ```
 
 ### Options
@@ -48,6 +51,31 @@ wit-docs-inject --component component.wasm --wit-dir wit-source/ --out documente
 - `--wit-dir <WIT_DIR>`: WIT package directory whose docstrings you want to embed
 - `--out <OUT>`: Output component path (default: adds .docs.wasm suffix)
 - `--inplace`: Overwrite the input file in place
+- `--resolve-deps`: Automatically resolve WIT dependencies from deps.toml if present (default: true)
+
+### Automatic Dependency Resolution
+
+`wit-docs-inject` automatically resolves WIT dependencies before processing your component. If your WIT directory contains a `deps.toml` file, it will:
+
+1. Automatically fetch and resolve all dependencies listed in `deps.toml`
+2. Create or update `deps.lock` to track dependency versions
+3. Populate the `wit/deps` directory with resolved dependencies
+
+This ensures that the WIT directory is fully resolved before extracting documentation, even if dependencies haven't been fetched yet.
+
+**Example `wit/deps.toml`:**
+```toml
+# Simple URL dependencies
+clocks = "https://github.com/WebAssembly/wasi-clocks/archive/main.tar.gz"
+http = "https://github.com/WebAssembly/wasi-http/archive/main.tar.gz"
+
+# Pinned dependencies with checksums
+[logging]
+url = "https://github.com/WebAssembly/wasi-logging/archive/main.tar.gz"
+sha256 = "..."
+```
+
+To disable this behavior, use `--resolve-deps=false`.
 
 ## wit-docs-view Usage
 
