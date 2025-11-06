@@ -93,11 +93,14 @@ fn display_docs(docs: &Value, args: &Args) -> Result<()> {
 }
 
 fn display_pretty(docs: &Value, args: &Args) -> Result<()> {
+    let mut displayed_something = false;
+
+    // Display world-level documentation if present
     if let Some(worlds) = docs.get("worlds").and_then(|w| w.as_object()) {
         for (world_name, world_data) in worlds {
             if !args.functions_only {
                 println!("🌍 World: {}", world_name);
-                
+
                 if let Some(world_docs) = world_data.get("docs").and_then(|d| d.as_str()) {
                     println!("   📝 {}", world_docs);
                 } else {
@@ -112,10 +115,10 @@ fn display_pretty(docs: &Value, args: &Args) -> Result<()> {
                         if !args.functions_only {
                             println!("📤 Exported Functions:");
                         }
-                        
+
                         for (func_name, func_data) in func_exports {
                             print!("   🔧 {}", func_name);
-                            
+
                             if let Some(func_docs) = func_data.get("docs").and_then(|d| d.as_str()) {
                                 println!(": {}", func_docs);
                             } else {
@@ -131,10 +134,10 @@ fn display_pretty(docs: &Value, args: &Args) -> Result<()> {
                         if !args.functions_only {
                             println!("📥 Imported Functions:");
                         }
-                        
+
                         for (func_name, func_data) in func_imports {
                             print!("   🔧 {}", func_name);
-                            
+
                             if let Some(func_docs) = func_data.get("docs").and_then(|d| d.as_str()) {
                                 println!(": {}", func_docs);
                             } else {
@@ -145,21 +148,59 @@ fn display_pretty(docs: &Value, args: &Args) -> Result<()> {
                     }
                 }
             }
+            displayed_something = true;
         }
-    } else {
-        println!("No world documentation found");
     }
-    
+
+    // Display interface-level documentation if present (fallback when no worlds)
+    if let Some(interfaces) = docs.get("interfaces").and_then(|i| i.as_object()) {
+        if !interfaces.is_empty() && !args.worlds_only {
+            for (interface_name, interface_data) in interfaces {
+                println!("🔌 Interface: {}", interface_name);
+
+                if let Some(interface_docs) = interface_data.get("docs").and_then(|d| d.as_str()) {
+                    println!("   📝 {}", interface_docs);
+                }
+
+                if !args.functions_only {
+                    if let Some(funcs) = interface_data.get("funcs").and_then(|f| f.as_object()) {
+                        if !funcs.is_empty() {
+                            println!("\n   Functions:");
+                            for (func_name, func_data) in funcs {
+                                print!("   🔧 {}", func_name);
+
+                                if let Some(func_docs) = func_data.get("docs").and_then(|d| d.as_str()) {
+                                    println!(": {}", func_docs);
+                                } else {
+                                    println!(": (no documentation)");
+                                }
+                            }
+                        }
+                    }
+                }
+                println!();
+                displayed_something = true;
+            }
+        }
+    }
+
+    if !displayed_something {
+        println!("No documentation found");
+    }
+
     Ok(())
 }
 
 fn display_markdown(docs: &Value, args: &Args) -> Result<()> {
+    let mut displayed_something = false;
+
+    // Display world-level documentation if present
     if let Some(worlds) = docs.get("worlds").and_then(|w| w.as_object()) {
         for (world_name, world_data) in worlds {
             if !args.functions_only {
                 println!("# World: {}", world_name);
                 println!();
-                
+
                 if let Some(world_docs) = world_data.get("docs").and_then(|d| d.as_str()) {
                     println!("{}", world_docs);
                 } else {
@@ -175,10 +216,10 @@ fn display_markdown(docs: &Value, args: &Args) -> Result<()> {
                             println!("## Exported Functions");
                             println!();
                         }
-                        
+
                         for (func_name, func_data) in func_exports {
                             println!("### `{}`", func_name);
-                            
+
                             if let Some(func_docs) = func_data.get("docs").and_then(|d| d.as_str()) {
                                 println!("{}", func_docs);
                             } else {
@@ -195,10 +236,10 @@ fn display_markdown(docs: &Value, args: &Args) -> Result<()> {
                             println!("## Imported Functions");
                             println!();
                         }
-                        
+
                         for (func_name, func_data) in func_imports {
                             println!("### `{}`", func_name);
-                            
+
                             if let Some(func_docs) = func_data.get("docs").and_then(|d| d.as_str()) {
                                 println!("{}", func_docs);
                             } else {
@@ -209,11 +250,49 @@ fn display_markdown(docs: &Value, args: &Args) -> Result<()> {
                     }
                 }
             }
+            displayed_something = true;
         }
-    } else {
-        println!("No world documentation found");
     }
-    
+
+    // Display interface-level documentation if present (fallback when no worlds)
+    if let Some(interfaces) = docs.get("interfaces").and_then(|i| i.as_object()) {
+        if !interfaces.is_empty() && !args.worlds_only {
+            for (interface_name, interface_data) in interfaces {
+                println!("# Interface: {}", interface_name);
+                println!();
+
+                if let Some(interface_docs) = interface_data.get("docs").and_then(|d| d.as_str()) {
+                    println!("{}", interface_docs);
+                    println!();
+                }
+
+                if !args.functions_only {
+                    if let Some(funcs) = interface_data.get("funcs").and_then(|f| f.as_object()) {
+                        if !funcs.is_empty() {
+                            println!("## Functions");
+                            println!();
+                            for (func_name, func_data) in funcs {
+                                println!("### `{}`", func_name);
+
+                                if let Some(func_docs) = func_data.get("docs").and_then(|d| d.as_str()) {
+                                    println!("{}", func_docs);
+                                } else {
+                                    println!("*(no documentation)*");
+                                }
+                                println!();
+                            }
+                        }
+                    }
+                }
+                displayed_something = true;
+            }
+        }
+    }
+
+    if !displayed_something {
+        println!("No documentation found");
+    }
+
     Ok(())
 }
 
